@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
+<!-- โหลด Google Identity Services (ไม่ใช้ async/defer เพื่อให้แน่ใจว่าโหลดเสร็จก่อน) -->
 <script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body class="min-h-screen flex items-center justify-center px-4">
@@ -14,7 +15,7 @@
     <button id="theme-toggle-btn" class="theme-toggle" onclick="toggleTheme()"></button>
   </div>
 
-  <div class="panel border-base w-full max-w-sm p-8 text-center">
+  <div class="panel border-base w-full max-w-sm p-8 text-center" id="login-panel">
     <svg class="icon w-12 h-12 mx-auto text-indigo-500" viewBox="0 0 24 24"><use href="#icon-building"/></svg>
     <h1 class="text-lg font-bold mt-3">ระบบบริหารแผนปฏิบัติการ</h1>
     <p class="text-soft text-xs mt-1">โรงเรียนโพนงามศึกษา สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาสกลนคร</p>
@@ -23,8 +24,20 @@
       <span class="flex-1 border-t border-soft"></span>เข้าสู่ระบบด้วยบัญชี Google ของโรงเรียน<span class="flex-1 border-t border-soft"></span>
     </div>
 
-    <div id="g_id_signin" class="flex justify-center"></div>
-    <div id="signin-status" class="text-xs text-soft mt-4"></div>
+    <!-- ปุ่ม Login ธรรมดา — ไม่ใช้ Google rendered button เพื่อหลีกเลี่ยงปัญหา -->
+    <button id="login-btn" onclick="doLogin()"
+      class="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-full border border-soft font-semibold text-sm hover:bg-subtle transition-colors">
+      <svg viewBox="0 0 48 48" class="w-5 h-5 flex-shrink-0">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        <path fill="none" d="M0 0h48v48H0z"/>
+      </svg>
+      เข้าสู่ระบบด้วย Google
+    </button>
+
+    <div id="signin-status" class="text-xs text-soft mt-4 min-h-[20px]"></div>
 
     <div class="mt-6 text-[11px] text-faint flex items-center justify-center gap-1.5">
       <svg class="icon w-3.5 h-3.5" viewBox="0 0 24 24"><use href="#icon-shield"/></svg>
@@ -42,40 +55,54 @@
   injectIconSprite();
   renderThemeToggleIcon();
 
+  // DEV MODE: ข้าม login
   if (typeof DEV_MODE !== 'undefined' && DEV_MODE) {
-    document.querySelector('.panel').innerHTML = `
+    document.getElementById('login-panel').innerHTML = `
       <svg class="icon w-12 h-12 mx-auto text-amber-500" viewBox="0 0 24 24"><use href="#icon-shield"/></svg>
       <h1 class="text-lg font-bold mt-3">โหมดทดลองดูหน้าจอ (DEV MODE)</h1>
-      <p class="text-soft text-xs mt-2">ระบบปิดการเข้าสู่ระบบด้วย Google ไว้ชั่วคราวเพื่อให้ดู UX/UI ได้ครบทุกหน้า
-      จำลองเป็นผู้ใช้สิทธิ์ admin โดยอัตโนมัติ</p>
-      <a href="dashboard.html" class="btn btn-primary mt-5 inline-flex">เข้าสู่แดชบอร์ด ${icon('arrow-left','w-4 h-4 rotate-180')}</a>
-      <p class="text-[11px] text-faint mt-4">เปิดใช้งานจริงได้โดยแก้ <code>DEV_MODE = false</code> ในไฟล์ auth.js แล้วตั้งค่า Google OAuth ตามขั้นตอนใน README.md</p>`;
+      <p class="text-soft text-xs mt-2">ข้าม login อัตโนมัติ จำลองเป็นผู้ใช้ admin</p>
+      <a href="dashboard.html" class="btn btn-primary mt-5 inline-flex">เข้าสู่แดชบอร์ด</a>
+      <p class="text-[11px] text-faint mt-4">แก้ <code>DEV_MODE = false</code> ใน auth.js เพื่อใช้งานจริง</p>`;
     return;
   }
 
-  // ถ้า login ค้างอยู่แล้วและยังไม่หมดอายุ ให้ข้ามไปหน้า dashboard เลย
+  // ถ้า session ยังอยู่ ข้ามไป dashboard เลย
   if (getSession()) { window.location.href = 'dashboard.html'; return; }
 
-  window.onload = function () {
-    if (typeof google === 'undefined') {
-      document.getElementById('signin-status').innerText = 'ไม่สามารถโหลด Google Sign-In ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
-      return;
-    }
-    // เริ่มต้น token client สำหรับ Sheets API scope (ไม่ใช้ Apps Script)
+  // เตรียม token client ทันทีที่หน้าโหลดเสร็จ
+  if (document.readyState === 'complete') {
     initTokenClient();
-    // เริ่มต้น id client สำหรับรับ credential (ยืนยันตัวตน)
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: async (resp) => {
-        document.getElementById('signin-status').innerText = 'กำลังตรวจสอบสิทธิ์...';
-        const ok = await handleGoogleCredential(resp);
-        if (ok) window.location.href = 'dashboard.html';
-        else document.getElementById('signin-status').innerText = 'เข้าสู่ระบบไม่สำเร็จ';
-      },
-    });
-    google.accounts.id.renderButton(document.getElementById('g_id_signin'), { theme: 'outline', size: 'large', shape: 'pill', width: 280 });
-  };
+  } else {
+    window.addEventListener('load', initTokenClient);
+  }
 })();
+
+async function doLogin() {
+  const btn = document.getElementById('login-btn');
+  const status = document.getElementById('signin-status');
+  btn.disabled = true;
+  btn.innerText = 'กำลังเชื่อมต่อ...';
+  status.innerText = '';
+
+  // ลอง init อีกครั้งกรณีโหลดช้า
+  initTokenClient();
+
+  if (!window.google?.accounts?.oauth2) {
+    status.innerText = 'ไม่สามารถโหลด Google script ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้ว Refresh';
+    btn.disabled = false;
+    btn.innerText = 'เข้าสู่ระบบด้วย Google';
+    return;
+  }
+
+  const ok = await handleLogin();
+  if (ok) {
+    status.innerText = 'เข้าสู่ระบบสำเร็จ กำลังโหลด...';
+    window.location.href = 'dashboard.html';
+  } else {
+    btn.disabled = false;
+    btn.innerText = 'เข้าสู่ระบบด้วย Google';
+  }
+}
 </script>
 </body>
 </html>

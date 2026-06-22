@@ -1,51 +1,25 @@
 // =====================================================================
-// AUTH LAYER — Google Sign-In + Google Sheets API (ไม่ต้อง Apps Script)
+// AUTH LAYER — ใช้ Google OAuth2 Token Client flow เดียว (เรียบง่าย เสถียรกว่า)
 //
-// สถาปัตยกรรม:
-//   1) google.accounts.id  → ได้ id_token (JWT) สำหรับยืนยันตัวตน (email/name/picture)
-//   2) google.accounts.oauth2 → ได้ access_token สำหรับเรียก Sheets API โดยตรง
-//
-// ความปลอดภัย:
-//   - Google Sheet ที่ใช้เก็บข้อมูลแชร์เฉพาะคนที่มีสิทธิ์ (Viewer/Editor ตาม role)
-//     → คนที่ไม่ได้รับแชร์จะ 403 ทันที ก่อนถึง whitelist ชั้นสอง
-//   - whitelist ใน Sheet ชีต "Whitelist" ควบคุม role/กลุ่มงาน/รายการที่แก้ไขได้
-//   - access_token มีอายุ 1 ชม. refresh อัตโนมัติ ไม่ต้อง login ซ้ำ
+// flow: กดปุ่ม Login → popup ขอสิทธิ์ Sheets → ได้ access_token
+//       → เรียก userinfo endpoint ดึง email/ชื่อ/รูป
+//       → อ่าน Whitelist ใน Sheet → สร้าง session
 // =====================================================================
 
-// ---- ตั้งค่าที่ต้องกรอก 2 ค่า ----------------------------------------
+const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com";
+const SPREADSHEET_ID   = "YOUR_SPREADSHEET_ID";
+const SHEETS_SCOPE     = "https://www.googleapis.com/auth/spreadsheets openid email profile";
 
-// Google OAuth Client ID (จาก Google Cloud Console → APIs & Services → Credentials)
-const GOOGLE_CLIENT_ID = "1080521502773-mt5a7907nseji5upr6ajm0lv6ommeicc.apps.googleusercontent.com";
-
-// Spreadsheet ID ของ Google Sheet ที่ใช้เก็บข้อมูล
-// (เปิด Sheet → ดู URL: docs.google.com/spreadsheets/d/<<< ID ตรงนี้ >>>/edit)
-const SPREADSHEET_ID = "1gt8OSlgf5atgtXx7KPtBRD6gcWGsf_b1COOTE2gS84w";
-
-// Scope ที่ขอ: อ่าน profile + อ่าน/เขียน Sheets
-const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets email profile openid";
-
-// -----------------------------------------------------------------------
-
-// ----------------------------------------------------------------------
-// DEV_MODE: โหมดทดลองดูหน้าจอโดยไม่ต้อง login จริง
-// true  = ข้าม login, จำลองเป็น admin เห็น/แก้ไขได้ทุกกลุ่มงาน
-// false = ใช้ Google Sign-In + Sheets API จริง (ต้องตั้งค่า CLIENT_ID และ SPREADSHEET_ID ก่อน)
-// !! ต้องเปลี่ยนเป็น false ก่อนใช้งานจริงกับข้อมูลโรงเรียน !!
-// ----------------------------------------------------------------------
+// DEV_MODE: true = ข้าม login ดู UX ได้เลย / false = ใช้งานจริง
 const DEV_MODE = false;
 
 const DEV_MOCK_SESSION = {
-  email: 'demo.admin@phonngam.ac.th',
-  name: 'ผู้ใช้งานทดลอง (DEV MODE)',
-  picture: '',
-  role: 'admin',
-  editableIds: [],
-  departments: ['academic','student','general','budget','personnel'],
-  accessToken: null,
-  exp: Math.floor(Date.now()/1000) + 86400,
+  email: 'demo.admin@phonngam.ac.th', name: 'ผู้ใช้ทดลอง (DEV MODE)', picture: '',
+  role: 'admin', editableIds: [], departments: ['academic','student','general','budget','personnel'],
+  accessToken: null, exp: Math.floor(Date.now()/1000) + 86400,
 };
 
-const SESSION_KEY = 'edu_session_v2';
+const SESSION_KEY = 'edu_session_v3';
 
 function getSession() {
   if (DEV_MODE) return DEV_MOCK_SESSION;
@@ -59,87 +33,104 @@ function getSession() {
 }
 function clearSession() { sessionStorage.removeItem(SESSION_KEY); }
 
-// ---- Token client สำหรับ access_token (Sheets API) -------------------
+// ---- Token Client (flow เดียว ไม่มี race condition) ------------------
 let _tokenClient = null;
-let _tokenResolve = null;
+let _loginResolve = null;
+let _loginReject  = null;
 
 function initTokenClient() {
-  if (typeof google === 'undefined' || !google.accounts?.oauth2) return false;
-  if (_tokenClient) return true; // เริ่มต้นแล้ว ไม่ต้องทำซ้ำ
+  if (!window.google?.accounts?.oauth2) return false;
+  if (_tokenClient) return true;
   _tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: SHEETS_SCOPE,
-    callback: (resp) => {
-      if (_tokenResolve) { _tokenResolve(resp); _tokenResolve = null; }
+    callback: async (resp) => {
+      if (resp.error) {
+        if (_loginReject) _loginReject(new Error(resp.error));
+        _loginResolve = _loginReject = null;
+        return;
+      }
+      if (_loginResolve) {
+        _loginResolve(resp.access_token);
+        _loginResolve = _loginReject = null;
+      }
     },
   });
   return true;
 }
 
-// ขอ access_token — ถ้า token client ยังไม่พร้อมให้ลอง init ก่อนอีกครั้ง
-function requestAccessToken() {
+function getAccessTokenViaPopup() {
   return new Promise((resolve, reject) => {
-    // ลอง init อีกครั้งในกรณีที่ script โหลดช้า
-    if (!_tokenClient) initTokenClient();
-    if (!_tokenClient) {
-      reject(new Error('Google Sign-In script ยังโหลดไม่เสร็จ กรุณา Refresh หน้าเว็บแล้วลองใหม่'));
+    if (!initTokenClient()) {
+      reject(new Error('Google script ยังโหลดไม่เสร็จ กรุณา Refresh หน้าเว็บ'));
       return;
     }
-    _tokenResolve = (resp) => {
-      if (resp.error) reject(new Error(resp.error));
-      else resolve(resp.access_token);
-    };
-    _tokenClient.requestAccessToken({ prompt: 'consent' }); // consent = แสดง popup ขอสิทธิ์ทุกครั้ง (ป้องกัน silent fail)
+    _loginResolve = resolve;
+    _loginReject  = reject;
+    _tokenClient.requestAccessToken({ prompt: 'consent' });
   });
 }
 
-// ---- decode JWT id_token (เพื่อเอา email/name/picture เท่านั้น) --------
-function decodeJWT(token) {
-  const payload = token.split('.')[1];
-  const json = decodeURIComponent(atob(payload.replace(/-/g,'+').replace(/_/g,'/'))
-    .split('').map(c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0')).join(''));
-  return JSON.parse(json);
+// ---- ดึง profile จาก userinfo endpoint (ใช้ access_token ที่ได้) -----
+async function getUserProfile(accessToken) {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (!res.ok) throw new Error('ดึงข้อมูลโปรไฟล์ไม่สำเร็จ');
+  return res.json(); // { email, name, picture, exp, ... }
 }
 
-// ---- อ่าน Whitelist จาก Google Sheet ---------------------------------
+// ---- อ่าน Whitelist จาก Google Sheet --------------------------------
 async function loadWhitelist(accessToken) {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Whitelist!A2:D200`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!res.ok) throw new Error(`ไม่สามารถอ่าน Whitelist ได้ (${res.status}) — ตรวจสอบว่า Sheet แชร์ให้อีเมลนี้แล้ว`);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`อ่าน Whitelist ไม่สำเร็จ (${res.status}) — ตรวจสอบว่า Sheet แชร์ให้อีเมลนี้แล้ว`);
   const data = await res.json();
   return (data.values || []).map(r => ({
-    email: (r[0]||'').trim().toLowerCase(),
-    role:  (r[1]||'editor').trim(),
+    email:       (r[0]||'').trim().toLowerCase(),
+    role:        (r[1]||'editor').trim(),
     departments: (r[2]||'').split(',').map(s=>s.trim()).filter(Boolean),
     editableIds: (r[3]||'').split(',').map(s=>s.trim()).filter(Boolean),
   }));
 }
 
-// ---- flow หลัก: id credential → ขอ access_token → อ่าน whitelist ----
-async function handleGoogleCredential(credentialResponse) {
-  const profile = decodeJWT(credentialResponse.credential);
+// ---- flow หลัก: เรียกจากปุ่ม Login ที่ index.html ------------------
+async function handleLogin() {
   let accessToken;
   try {
-    accessToken = await requestAccessToken();
+    accessToken = await getAccessTokenViaPopup();
   } catch (e) {
-    alert('ไม่สามารถขอสิทธิ์เข้าถึง Google Sheets ได้: ' + e.message);
+    alert('ขอสิทธิ์ไม่สำเร็จ: ' + e.message);
     return false;
   }
+
+  let profile;
+  try {
+    profile = await getUserProfile(accessToken);
+  } catch (e) {
+    alert('ดึงข้อมูลผู้ใช้ไม่สำเร็จ: ' + e.message);
+    return false;
+  }
+
   let perm;
   try {
     const whitelist = await loadWhitelist(accessToken);
     perm = whitelist.find(w => w.email === profile.email.toLowerCase());
   } catch (e) {
-    alert(e.message); return false;
-  }
-  if (!perm) {
-    alert('อีเมลนี้ยังไม่ได้รับสิทธิ์เข้าใช้งานระบบ\nกรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์ใน Sheet "Whitelist"');
+    alert(e.message);
     return false;
   }
+
+  if (!perm) {
+    alert(`อีเมล ${profile.email} ยังไม่ได้รับสิทธิ์เข้าใช้งานระบบ\nกรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์ใน Sheet "Whitelist"`);
+    return false;
+  }
+
   const session = {
     email: profile.email, name: profile.name, picture: profile.picture,
     role: perm.role, editableIds: perm.editableIds, departments: perm.departments,
-    accessToken, exp: profile.exp,
+    accessToken, exp: Math.floor(Date.now()/1000) + 3600, // 1 ชม.
   };
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
   return true;
@@ -153,12 +144,14 @@ function requireAuth() {
 }
 
 function logout() {
-  if (DEV_MODE) { alert('อยู่ในโหมดทดลอง (DEV_MODE = true) — ไม่มีการ logout จริง\nแก้ DEV_MODE = false ใน auth.js เพื่อเปิดใช้ระบบจริง'); return; }
-  if (typeof google !== 'undefined') google.accounts.id.disableAutoSelect();
-  clearSession(); window.location.href = 'index.html';
+  if (DEV_MODE) { alert('DEV MODE — ไม่มีการ logout จริง'); return; }
+  if (window.google?.accounts?.oauth2 && getSession()?.accessToken) {
+    google.accounts.oauth2.revoke(getSession().accessToken, () => {});
+  }
+  clearSession();
+  window.location.href = 'index.html';
 }
 
-// ---- ตรวจสิทธิ์การแก้ไขรายการ (ฝั่ง client สำหรับ UX) ---------------
 function canEditItem(session, item) {
   if (!session) return false;
   if (session.role === 'admin') return true;
