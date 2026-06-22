@@ -15,11 +15,11 @@
 // ---- ตั้งค่าที่ต้องกรอก 2 ค่า ----------------------------------------
 
 // Google OAuth Client ID (จาก Google Cloud Console → APIs & Services → Credentials)
-const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "1080521502773-mt5a7907nseji5upr6ajm0lv6ommeicc.apps.googleusercontent.com";
 
 // Spreadsheet ID ของ Google Sheet ที่ใช้เก็บข้อมูล
 // (เปิด Sheet → ดู URL: docs.google.com/spreadsheets/d/<<< ID ตรงนี้ >>>/edit)
-const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID";
+const SPREADSHEET_ID = "1gt8OSlgf5atgtXx7KPtBRD6gcWGsf_b1COOTE2gS84w";
 
 // Scope ที่ขอ: อ่าน profile + อ่าน/เขียน Sheets
 const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets email profile openid";
