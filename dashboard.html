@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แดชบอร์ดสรุปผล | ระบบบริหารแผนปฏิบัติการ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="no-print topbar sticky top-0 z-50 shadow-md">
+    <div class="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center gap-2">
+        <svg class="icon w-6 h-6 text-indigo-200" viewBox="0 0 24 24"><use href="#icon-building"/></svg>
+        <div>
+          <div class="text-sm font-bold leading-tight">ระบบบริหารแผนปฏิบัติการประจำปีงบประมาณ 2568 - 2569</div>
+          <div class="text-[11px] text-indigo-200">โรงเรียนโพนงามศึกษา สพม.สกลนคร</div>
+        </div>
+      </div>
+      <nav class="flex items-center gap-1 flex-wrap">
+        <a href="dashboard.html" class="nav-link active"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-grid"/></svg>แดชบอร์ด</a>
+        <a href="data-entry.html" class="nav-link"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-table"/></svg>บันทึกข้อมูล</a>
+        <a href="import.html" class="nav-link"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-upload"/></svg>นำเข้าข้อมูล (CSV)</a>
+        <button id="theme-toggle-btn" class="theme-toggle ml-1" onclick="toggleTheme()"></button>
+        <div id="user-chip" class="flex items-center gap-2 ml-2 pl-2 border-l border-white/20"></div>
+      </nav>
+    </div>
+  </div>
+  <div id="dev-banner" class="no-print hidden text-center text-[11px] py-1.5 font-medium" style="background:var(--amber-soft); color:var(--amber)"></div>
+
+  <div class="max-w-[1400px] mx-auto px-3 mt-4 pb-10">
+
+    <!-- ภาพรวมทั้งโรงเรียน -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+      <div class="panel border-base p-4 border-l-4" style="border-left-color:var(--accent)">
+        <div class="text-xs text-soft font-medium">งบประมาณภาพรวมทั้งโรงเรียน</div>
+        <div id="kpi-budget" class="text-2xl font-bold mt-1" style="color:var(--accent)">0.00</div>
+      </div>
+      <div class="panel border-base p-4 border-l-4" style="border-left-color:var(--amber)">
+        <div class="text-xs text-soft font-medium">ใช้จ่ายไปแล้วทั้งหมด</div>
+        <div id="kpi-spent" class="text-2xl font-bold mt-1" style="color:var(--amber)">0.00</div>
+      </div>
+      <div class="panel border-base p-4 border-l-4" style="border-left-color:var(--green)">
+        <div class="text-xs text-soft font-medium">คงเหลือสุทธิ</div>
+        <div id="kpi-remain" class="text-2xl font-bold mt-1" style="color:var(--green)">0.00</div>
+      </div>
+      <div class="panel border-base p-4 border-l-4" style="border-left-color:var(--blue)">
+        <div class="text-xs text-soft font-medium">% เบิกจ่ายสะสม</div>
+        <div id="kpi-pct" class="text-2xl font-bold mt-1" style="color:var(--blue)">0%</div>
+      </div>
+    </div>
+
+    <!-- ตัวชี้วัดอื่นนอกเหนือจากงบประมาณ -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+      <div class="panel border-base p-4 text-center">
+        <svg class="icon w-5 h-5 mx-auto text-soft mb-1" viewBox="0 0 24 24"><use href="#icon-office"/></svg>
+        <div id="kpi-projects" class="text-xl font-bold">0</div>
+        <div class="text-[11px] text-soft">โครงการทั้งหมด</div>
+      </div>
+      <div class="panel border-base p-4 text-center">
+        <svg class="icon w-5 h-5 mx-auto text-soft mb-1" viewBox="0 0 24 24"><use href="#icon-star"/></svg>
+        <div id="kpi-quality" class="text-xl font-bold">-</div>
+        <div class="text-[11px] text-soft">เชิงคุณภาพภาพรวมโรงเรียน</div>
+      </div>
+      <div class="panel border-base p-4 text-center">
+        <svg class="icon w-5 h-5 mx-auto mb-1" style="color:var(--red)" viewBox="0 0 24 24"><use href="#icon-alert"/></svg>
+        <div id="kpi-overbudget" class="text-xl font-bold" style="color:var(--red)">0</div>
+        <div class="text-[11px] text-soft">รายการใช้จ่ายเกินงบ</div>
+      </div>
+      <div class="panel border-base p-4 text-center">
+        <svg class="icon w-5 h-5 mx-auto mb-1" style="color:var(--text-soft)" viewBox="0 0 24 24"><use href="#icon-clock"/></svg>
+        <div id="kpi-pending" class="text-xl font-bold">0</div>
+        <div class="text-[11px] text-soft">รายการรอเบิกจ่าย</div>
+      </div>
+    </div>
+
+    <!-- สรุปผลสำเร็จตามโครงการ และผลการสรุปโครงการ -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+      <div class="panel border-base p-4">
+        <h2 class="text-sm font-bold mb-3 flex items-center gap-1.5">
+          <svg class="icon w-4 h-4 text-soft" viewBox="0 0 24 24"><use href="#icon-star"/></svg>
+          สรุปเชิงคุณภาพ (ผลสำเร็จตามโครงการ)
+        </h2>
+        <div id="quality-dist" class="space-y-2"></div>
+      </div>
+      <div class="panel border-base p-4">
+        <h2 class="text-sm font-bold mb-3 flex items-center gap-1.5">
+          <svg class="icon w-4 h-4 text-soft" viewBox="0 0 24 24"><use href="#icon-check-circle"/></svg>
+          สรุปผลการสรุปโครงการ (เทียบค่าเป้าหมาย)
+        </h2>
+        <div id="result-dist" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <!-- เปรียบเทียบ 5 กลุ่มงาน: กราฟแท่ง -->
+    <div class="panel border-base p-4 mb-5">
+      <h2 class="text-sm font-bold mb-3 flex items-center gap-1.5">
+        <svg class="icon w-4 h-4 text-soft" viewBox="0 0 24 24"><use href="#icon-chart"/></svg>
+        เปรียบเทียบงบประมาณและการเบิกจ่ายราย 5 กลุ่มงาน
+      </h2>
+      <div id="dept-bars" class="space-y-3"></div>
+    </div>
+
+    <!-- ตารางเปรียบเทียบ -->
+    <div class="panel border-base overflow-hidden mb-5">
+      <div class="p-3 bg-subtle border-b border-soft text-sm font-bold flex items-center gap-1.5">
+        <svg class="icon w-4 h-4 text-soft" viewBox="0 0 24 24"><use href="#icon-table"/></svg>
+        ตารางสรุปราย 5 กลุ่มงาน
+      </div>
+      <div class="overflow-x-auto">
+        <table class="data-table text-xs">
+          <thead><tr>
+            <th class="p-2">กลุ่มงาน</th><th class="p-2">งบจัดสรร</th><th class="p-2">ใช้ไปแล้ว</th>
+            <th class="p-2">คงเหลือ</th><th class="p-2">% เบิกจ่าย</th><th class="p-2">โครงการ</th>
+            <th class="p-2">ผลสรุป</th><th class="p-2">เกินงบ</th><th class="p-2">รอเบิกจ่าย</th><th class="p-2">เข้าหน้าบันทึก</th>
+          </tr></thead>
+          <tbody id="dept-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+<script src="icons.js"></script>
+<script src="theme.js"></script>
+<script src="shared.js"></script>
+<script src="auth.js"></script>
+<script>
+  injectIconSprite();
+  renderThemeToggleIcon();
+  if (typeof DEV_MODE !== 'undefined' && DEV_MODE) {
+    const b = document.getElementById('dev-banner');
+    b.classList.remove('hidden');
+    b.innerHTML = 'โหมดทดลองดูหน้าจอ (DEV MODE) — ข้ามการเข้าสู่ระบบจริง จำลองเป็นผู้ใช้สิทธิ์ admin · แก้ DEV_MODE = false ในไฟล์ auth.js เพื่อใช้งานจริง';
+  }
+  const session = requireAuth();
+  if (session) {
+    document.getElementById('user-chip').innerHTML = `
+      <img src="${session.picture || ''}" class="w-7 h-7 rounded-full border border-white/30" onerror="this.style.display='none'">
+      <span class="text-xs font-medium">${session.name || session.email}</span>
+      <button onclick="logout()" class="text-indigo-200 hover:text-white" title="ออกจากระบบ">${icon('logout','w-4 h-4')}</button>`;
+  }
+
+  async function init() {
+    let schoolBudget = 0, schoolSpent = 0, barsHtml = '', rowsHtml = '';
+    let totalProjects = 0, totalOverBudget = 0, totalPending = 0, schoolScoreSum = 0, schoolScoreCount = 0;
+    const deptStats = [];
+    const qualityCounts = { 'ดีเยี่ยม': 0, 'ดีมาก': 0, 'ดี': 0, 'พอใช้': 0, 'ปรับปรุง': 0 };
+    const resultCounts = { 'สูงกว่าค่าเป้าหมาย': 0, 'เป็นไปตามค่าเป้าหมาย': 0, 'ใกล้เคียงค่าเป้าหมาย': 0, 'ต่ำกว่าค่าเป้าหมาย': 0, 'ต้องปรับปรุงเร่งด่วน': 0 };
+
+    for (const dept of DEPARTMENTS) {
+      const data = await loadDeptData(dept.id);
+      const totals = data.length ? calculateHierarchy(data) : { budget: 0, spent: 0, remaining: 0, avgScorePct: null, scoreSum: 0, scoreCount: 0 };
+      const projectCount = data.filter(x => x.type === 'project').length;
+
+      // นับสถานะรายการระดับ leaf (เกินงบ / รอเบิกจ่าย) + กระจายเชิงคุณภาพ/ผลสรุปของกลุ่มงานนี้
+      let overBudget = 0, pending = 0;
+      data.forEach(item => {
+        const z = item._scoreCount ? (item._scoreSum / item._scoreCount) / 5 * 100 : null;
+        if (isLeaf(data, item)) {
+          const allocated = item.subBudgets.reduce((a, b) => a + b, 0);
+          const spent = item.spendings.reduce((s, sp) => s + Number(sp.amt || 0), 0);
+          const remain = allocated - spent;
+          if (remain < 0) overBudget++;
+          else if (spent === 0) pending++;
+          if (z !== null) qualityCounts[qualityGrade(z)]++;
+        }
+        if (item.type === 'project') {
+          const achPct = item._rollupTarget ? (item._rollupActual / item._rollupTarget * 100) : null;
+          if (achPct !== null) resultCounts[resultLabel(achPct)]++;
+        }
+      });
+
+      deptStats.push({ dept, totals, projectCount, overBudget, pending });
+      schoolBudget += totals.budget; schoolSpent += totals.spent;
+      totalProjects += projectCount; totalOverBudget += overBudget; totalPending += pending;
+      schoolScoreSum += totals.scoreSum || 0; schoolScoreCount += totals.scoreCount || 0;
+    }
+    const schoolRemain = schoolBudget - schoolSpent;
+    const schoolPct = schoolBudget ? (schoolSpent / schoolBudget * 100) : 0;
+    const schoolZ = schoolScoreCount ? (schoolScoreSum / schoolScoreCount) / 5 * 100 : null;
+
+    document.getElementById('kpi-budget').innerText = thb(schoolBudget) + ' บาท';
+    document.getElementById('kpi-spent').innerText = thb(schoolSpent) + ' บาท';
+    document.getElementById('kpi-remain').innerText = thb(schoolRemain) + ' บาท';
+    document.getElementById('kpi-pct').innerText = schoolPct.toFixed(1) + '%';
+    document.getElementById('kpi-projects').innerText = totalProjects;
+    document.getElementById('kpi-quality').innerText = qualityGrade(schoolZ);
+    document.getElementById('kpi-overbudget').innerText = totalOverBudget;
+    document.getElementById('kpi-pending').innerText = totalPending;
+
+    // สรุปการกระจายเชิงคุณภาพ / ผลการสรุปโครงการ
+    const qColors = { 'ดีเยี่ยม': 'var(--green)', 'ดีมาก': 'var(--blue)', 'ดี': 'var(--accent)', 'พอใช้': 'var(--amber)', 'ปรับปรุง': 'var(--red)' };
+    const rColors = { 'สูงกว่าค่าเป้าหมาย': 'var(--green)', 'เป็นไปตามค่าเป้าหมาย': 'var(--blue)', 'ใกล้เคียงค่าเป้าหมาย': 'var(--accent)', 'ต่ำกว่าค่าเป้าหมาย': 'var(--amber)', 'ต้องปรับปรุงเร่งด่วน': 'var(--red)' };
+    const renderDist = (counts, colors) => {
+      const max = Math.max(...Object.values(counts), 1);
+      return Object.entries(counts).map(([label, n]) => `
+        <div>
+          <div class="flex justify-between text-xs mb-0.5"><span style="color:${colors[label]}" class="font-semibold">${label}</span><span class="text-soft">${n} รายการ</span></div>
+          <div class="w-full h-2.5 rounded-full bg-subtle overflow-hidden"><div style="width:${(n/max*100)}%; background:${colors[label]}; height:100%; border-radius:9999px;"></div></div>
+        </div>`).join('');
+    };
+    document.getElementById('quality-dist').innerHTML = renderDist(qualityCounts, qColors);
+    document.getElementById('result-dist').innerHTML = renderDist(resultCounts, rColors);
+
+    const maxBudget = Math.max(...deptStats.map(d => d.totals.budget), 1);
+    deptStats.forEach(({ dept, totals, projectCount, overBudget, pending }) => {
+      const pctUsed = totals.budget ? (totals.spent / totals.budget * 100) : 0;
+      const widthBudget = (totals.budget / maxBudget * 100).toFixed(1);
+      const achPct = totals.achievementPct;
+      barsHtml += `
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="font-semibold" style="color:${dept.color}">${dept.short}</span>
+            <span class="text-soft">${thb(totals.spent)} / ${thb(totals.budget)} บาท (${pctUsed.toFixed(1)}%)</span>
+          </div>
+          <div class="w-full h-4 rounded-full bg-subtle overflow-hidden border border-soft">
+            <div style="width:${widthBudget}%; background:${dept.color}22; height:100%; position:relative;">
+              <div style="width:${totals.budget ? Math.min(pctUsed,100) : 0}%; background:${dept.color}; height:100%; border-radius:9999px;"></div>
+            </div>
+          </div>
+        </div>`;
+      rowsHtml += `
+        <tr class="row-activity">
+          <td class="p-2 font-semibold" style="color:${dept.color}">${dept.short}</td>
+          <td class="p-2 text-right font-mono">${thb(totals.budget)}</td>
+          <td class="p-2 text-right font-mono">${thb(totals.spent)}</td>
+          <td class="p-2 text-right font-mono ${totals.remaining < 0 ? 'text-red-500' : ''}">${thb(totals.remaining)}</td>
+          <td class="p-2 text-right">${pctUsed.toFixed(1)}%</td>
+          <td class="p-2 text-center">${projectCount}</td>
+          <td class="p-2 text-center text-[11px]">${resultLabel(achPct)}</td>
+          <td class="p-2 text-center ${overBudget > 0 ? 'font-bold' : ''}" style="color:${overBudget > 0 ? 'var(--red)' : 'inherit'}">${overBudget}</td>
+          <td class="p-2 text-center text-soft">${pending}</td>
+          <td class="p-2 text-center"><a href="data-entry.html?dept=${dept.id}" class="btn btn-ghost py-1 px-2 text-[11px]">เปิด</a></td>
+        </tr>`;
+    });
+    document.getElementById('dept-bars').innerHTML = barsHtml;
+    document.getElementById('dept-table-body').innerHTML = rowsHtml;
+  }
+  init();
+</script>
+</body>
+</html>

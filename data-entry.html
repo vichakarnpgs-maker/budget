@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>บันทึกข้อมูล | ระบบบริหารแผนปฏิบัติการ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  table.data-table { min-width: 1400px; }
+  /* ชื่อโครงการ/งาน/กิจกรรม: กว้างตายตัว ตัดด้วย ... ไม่ขึ้นบรรทัดใหม่ */
+  td.name-cell { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  th.name-th { width: 120px; min-width: 100px; max-width: 140px; }
+  /* คอลัมน์การเบิกจ่ายรายครั้ง: กว้างตายตัว ไม่ขยายตามเนื้อหา */
+  .spend-col { width: 26px !important; min-width: 26px !important; max-width: 26px !important; }
+  .spend-check-cell { cursor: pointer; width: 26px !important; min-width: 26px !important; max-width: 26px !important; }
+  .spend-check-cell:hover { background: var(--accent-soft) !important; }
+  .spend-check-cell.locked { cursor: not-allowed; opacity: .5; }
+  .spend-check-cell svg, .spend-check-cell span { display: block; margin: auto; }
+  @media print { .no-print { display: none !important; } }
+</style>
+</head>
+<body>
+  <div class="no-print topbar sticky top-0 z-50 shadow-md">
+    <div class="max-w-[99%] mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center gap-2">
+        <svg class="icon w-6 h-6 text-indigo-200" viewBox="0 0 24 24"><use href="#icon-building"/></svg>
+        <div>
+          <div class="text-sm font-bold leading-tight">ระบบบริหารแผนปฏิบัติการประจำปีงบประมาณ 2568 - 2569</div>
+          <div class="text-[11px] text-indigo-200">โรงเรียนโพนงามศึกษา สพม.สกลนคร</div>
+        </div>
+      </div>
+      <nav class="flex items-center gap-1 flex-wrap">
+        <a href="dashboard.html" class="nav-link"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-grid"/></svg>แดชบอร์ด</a>
+        <a href="data-entry.html" class="nav-link active"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-table"/></svg>บันทึกข้อมูล</a>
+        <a href="import.html" class="nav-link"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-upload"/></svg>นำเข้าข้อมูล (CSV)</a>
+        <button id="theme-toggle-btn" class="theme-toggle ml-1" onclick="toggleTheme()"></button>
+        <div id="user-chip" class="flex items-center gap-2 ml-2 pl-2 border-l border-white/20"></div>
+      </nav>
+    </div>
+  </div>
+  <div id="dev-banner" class="no-print hidden text-center text-[11px] py-1.5 font-medium" style="background:var(--amber-soft); color:var(--amber)"></div>
+
+  <div class="max-w-[99%] mx-auto px-2 mt-4 pb-10">
+
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div class="flex items-center gap-1.5 flex-wrap" id="dept-tabs"></div>
+      <div class="flex gap-2">
+        <button onclick="manualSave()" class="btn btn-success"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-save"/></svg>บันทึกข้อมูลทั้งหมด</button>
+        <button onclick="window.print()" class="btn btn-ghost"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-printer"/></svg>พิมพ์รายงาน</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div class="panel border-base p-4 border-l-4" style="border-left-color:var(--accent)">
+        <div class="text-xs text-soft font-medium">งบประมาณกลุ่มงานนี้</div>
+        <div id="dept-budget" class="text-2xl font-bold mt-1" style="color:var(--accent)">0.00</div>
+      </div>
+      <div class="panel border-base p-4 border-l-4" style="border-left-color:var(--amber)">
+        <div class="text-xs text-soft font-medium">ใช้ไปแล้ว</div>
+        <div id="dept-spent" class="text-2xl font-bold mt-1" style="color:var(--amber)">0.00</div>
+      </div>
+      <div class="panel border-base p-4 border-l-4" style="border-left-color:var(--green)">
+        <div class="text-xs text-soft font-medium">คงเหลือ</div>
+        <div id="dept-remain" class="text-2xl font-bold mt-1" style="color:var(--green)">0.00</div>
+      </div>
+    </div>
+
+    <div class="panel border-base overflow-hidden">
+      <div class="p-3 bg-subtle border-b border-soft flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+        <h2 class="text-sm font-bold flex items-center gap-1.5">
+          <svg class="icon w-4 h-4 text-soft" viewBox="0 0 24 24"><use href="#icon-chart"/></svg>
+          รายละเอียดการดำเนินงานและบัญชีคุมงบประมาณ
+        </h2>
+        <span class="text-xs px-2 py-1 rounded font-medium flex items-center gap-1.5" style="background:var(--amber-soft); color:var(--amber)">
+          <svg class="icon w-3.5 h-3.5" viewBox="0 0 24 24"><use href="#icon-lightbulb"/></svg>
+          คลิกที่แถวกิจกรรม/งานย่อยที่ไม่มีรายการลูก เพื่อเปิดป๊อปอัพบันทึกการเบิกจ่ายราย 8 ครั้ง (เฉพาะรายการที่ท่านมีสิทธิ์)
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="data-table text-left">
+          <thead>
+            <tr class="text-center text-xs">
+              <th class="p-1.5 w-9" rowspan="2">ที่</th>
+              <th class="p-1.5 name-th" rowspan="2">โครงการ / งานย่อย / กิจกรรมย่อย</th>
+              <th class="p-1.5 w-20" rowspan="2">งบจัดสรรรวม</th>
+              <th class="p-1 w-12" rowspan="2" title="งบอุดหนุน">อน.</th>
+              <th class="p-1 w-12" rowspan="2" title="งบพัฒนาผู้เรียน">พน.</th>
+              <th class="p-1 w-12" rowspan="2" title="งบรายได้สถานศึกษา">รายได้</th>
+              <th class="p-1" colspan="8">การเบิกจ่ายรายครั้ง</th>
+              <th class="p-1.5 w-20" rowspan="2">รวมใช้ไป</th>
+              <th class="p-1.5 w-20" rowspan="2">คงเหลือ</th>
+              <th class="p-1" colspan="3">ผลสำเร็จตามโครงการ</th>
+              <th class="p-1.5 w-24" rowspan="2">ผลการสรุปโครงการ</th>
+              <th class="p-1.5 w-24" rowspan="2">สถานะ</th>
+              <th class="p-1.5 w-24" rowspan="2">ผู้รับผิดชอบ</th>
+            </tr>
+            <tr class="text-center text-[10px]">
+              <th class="spend-col p-0.5">1</th><th class="spend-col p-0.5">2</th><th class="spend-col p-0.5">3</th><th class="spend-col p-0.5">4</th>
+              <th class="spend-col p-0.5">5</th><th class="spend-col p-0.5">6</th><th class="spend-col p-0.5">7</th><th class="spend-col p-0.5">8</th>
+              <th class="p-0.5 w-14">เป้าหมาย</th><th class="p-0.5 w-14">ผลจริง</th><th class="p-0.5 w-14">เชิงคุณภาพ</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+          <tfoot id="table-foot" class="font-bold text-xs"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: บันทึกข้อมูลแผนปฏิบัติการ (การเบิกจ่ายราย 8 ครั้ง + งบแยกประเภท + เป้าหมาย) -->
+  <div id="edit-modal" class="no-print fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4 overflow-y-auto">
+    <div class="panel max-w-5xl w-full overflow-hidden my-8">
+      <div class="topbar px-6 py-4 flex justify-between items-start">
+        <div>
+          <h3 class="font-bold text-sm flex items-center gap-1.5"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-pencil"/></svg>
+            <span>บันทึกข้อมูลแผนปฏิบัติการ: <span id="modal-title-display"></span></span>
+          </h3>
+          <p id="modal-parent-display" class="text-xs text-indigo-200 mt-1"></p>
+        </div>
+        <button onclick="closeModal()" class="text-indigo-200 hover:text-white"><svg class="icon w-5 h-5" viewBox="0 0 24 24"><use href="#icon-x"/></svg></button>
+      </div>
+
+      <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+        <div class="panel border-base p-4" style="background:var(--bg-subtle)">
+          <h4 class="font-bold text-xs mb-3 flex items-center gap-1.5">
+            <svg class="icon w-3.5 h-3.5 text-soft" viewBox="0 0 24 24"><use href="#icon-cash"/></svg>
+            บันทึกการใช้จ่ายงบประมาณ (วันที่และคะแนนความพึงพอใจกรอกได้ตามจริง)
+            <button type="button" onclick="toggleScoreGuide()" class="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full border" style="background:var(--accent-soft);color:var(--accent);border-color:var(--accent)">? คะแนน 0-5 หมายถึงอะไร</button>
+          </h4>
+          <!-- คำอธิบายระดับคะแนน -->
+          <div id="score-guide" class="hidden mb-3 rounded-lg overflow-hidden border border-soft text-[11px]">
+            <table class="w-full">
+              <thead><tr style="background:var(--bg-header-2);color:#fff"><th class="p-1.5 text-center">คะแนน</th><th class="p-1.5 text-center">ระดับ</th><th class="p-1.5">ความหมาย</th></tr></thead>
+              <tbody>
+                <tr style="background:var(--green-soft)"><td class="p-1.5 text-center font-bold" style="color:var(--green)">5</td><td class="p-1.5 text-center font-bold" style="color:var(--green)">ดีเยี่ยม</td><td class="p-1.5" style="color:var(--green)">พอใจมากที่สุด ผลลัพธ์เกินความคาดหมาย</td></tr>
+                <tr style="background:var(--blue-soft)"><td class="p-1.5 text-center font-bold" style="color:var(--blue)">4</td><td class="p-1.5 text-center font-bold" style="color:var(--blue)">ดีมาก</td><td class="p-1.5" style="color:var(--blue)">พอใจมาก ผลลัพธ์เป็นที่น่าพึงพอใจ</td></tr>
+                <tr style="background:var(--accent-soft)"><td class="p-1.5 text-center font-bold" style="color:var(--accent)">3</td><td class="p-1.5 text-center font-bold" style="color:var(--accent)">ดี</td><td class="p-1.5" style="color:var(--accent)">พอใจระดับปานกลาง ผลลัพธ์อยู่ในเกณฑ์ดี</td></tr>
+                <tr style="background:var(--amber-soft)"><td class="p-1.5 text-center font-bold" style="color:var(--amber)">2</td><td class="p-1.5 text-center font-bold" style="color:var(--amber)">พอใช้</td><td class="p-1.5" style="color:var(--amber)">พอใจน้อย ผลลัพธ์ต่ำกว่าความคาดหวัง</td></tr>
+                <tr style="background:var(--red-soft)"><td class="p-1.5 text-center font-bold" style="color:var(--red)">1</td><td class="p-1.5 text-center font-bold" style="color:var(--red)">ปรับปรุง</td><td class="p-1.5" style="color:var(--red)">ไม่พอใจ ผลลัพธ์ต่ำกว่าเกณฑ์มาก</td></tr>
+                <tr style="background:var(--bg-subtle)"><td class="p-1.5 text-center font-bold text-faint">0</td><td class="p-1.5 text-center text-faint">-</td><td class="p-1.5 text-faint">ยังไม่มีการประเมิน (ระบบจะไม่นำไปคำนวณ)</td></tr>
+              </tbody>
+            </table>
+            <div class="px-3 py-2 text-faint" style="background:var(--bg-subtle)">ค่าเฉลี่ยคะแนนจะถูกเทียบไตรยางศ์เป็นร้อยละ 100 แล้วแปลงเป็นระดับเชิงคุณภาพในตารางโดยอัตโนมัติ</div>
+          </div>
+          <div id="spend-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+        </div>
+
+        <div class="panel border-base p-4" style="background:var(--amber-soft)">
+          <h4 class="font-bold text-xs mb-1 flex items-center gap-1.5" style="color:var(--amber)"><svg class="icon w-3.5 h-3.5" viewBox="0 0 24 24"><use href="#icon-lightbulb"/></svg>ผลสำเร็จของโครงการ (ประมวลผลแปลผลอัตโนมัติ)</h4>
+          <p class="text-[11px] mb-2" style="color:var(--amber)">ระบบนำคะแนนความพึงพอใจรายครั้งมาหาค่าเฉลี่ย เทียบบัญญัติไตรยางศ์เป็นร้อยละ 100 แล้วแปลผลคุณภาพและเป้าหมายให้อัตโนมัติทันที</p>
+          <div id="auto-result" class="text-xs font-bold"></div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block font-bold text-xs mb-1">งบอุดหนุน (บาท)</label>
+            <input type="number" id="input-sub0" class="w-full border border-base rounded px-3 py-2 bg-transparent">
+          </div>
+          <div>
+            <label class="block font-bold text-xs mb-1">งบพัฒนาผู้เรียน (บาท)</label>
+            <input type="number" id="input-sub1" class="w-full border border-base rounded px-3 py-2 bg-transparent">
+          </div>
+          <div>
+            <label class="block font-bold text-xs mb-1">งบรายได้สถานศึกษา (บาท)</label>
+            <input type="number" id="input-sub2" class="w-full border border-base rounded px-3 py-2 bg-transparent">
+          </div>
+        </div>
+
+        <div class="panel border-base p-4" style="background:var(--blue-soft)">
+          <h4 class="font-bold text-xs mb-2 flex items-center gap-1.5" style="color:var(--blue)"><svg class="icon w-3.5 h-3.5" viewBox="0 0 24 24"><use href="#icon-target"/></svg>ผลสำเร็จเชิงปริมาณ (คนละส่วนกับคะแนนความพึงพอใจด้านบน)</h4>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] text-soft mb-0.5">ค่าเป้าหมายที่ตั้งไว้ (ตัวเลข)</label>
+              <input type="number" id="input-target" class="w-full border border-base rounded px-3 py-2 bg-transparent" placeholder="เช่น 80">
+            </div>
+            <div>
+              <label class="block text-[10px] text-soft mb-0.5">ผลสำเร็จจริง (ตัวเลข)</label>
+              <input type="number" id="input-actual" class="w-full border border-base rounded px-3 py-2 bg-transparent" placeholder="เช่น 91.23">
+            </div>
+          </div>
+          <div id="achievement-preview" class="text-xs font-semibold mt-2" style="color:var(--blue)"></div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-xs mb-1 flex items-center gap-1.5"><svg class="icon w-3.5 h-3.5 text-soft" viewBox="0 0 24 24"><use href="#icon-user"/></svg>ผู้รับผิดชอบ</label>
+            <input type="text" id="input-owner" class="w-full border border-base rounded px-3 py-2 bg-transparent">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-xs mb-1 flex items-center gap-1.5"><svg class="icon w-3.5 h-3.5 text-soft" viewBox="0 0 24 24"><use href="#icon-pencil"/></svg>หมายเหตุ</label>
+          <textarea id="input-note" rows="2" class="w-full border border-base rounded px-3 py-2 bg-transparent text-xs"></textarea>
+        </div>
+      </div>
+
+      <div class="bg-subtle px-6 py-3 flex justify-end gap-2 border-t border-soft">
+        <button onclick="closeModal()" class="btn btn-ghost">ยกเลิก</button>
+        <button onclick="applyModalEdits()" class="btn btn-success"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-save"/></svg>บันทึกข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
+<script src="icons.js"></script>
+<script src="theme.js"></script>
+<script src="shared.js"></script>
+<script src="auth.js"></script>
+<script>
+  injectIconSprite();
+  renderThemeToggleIcon();
+  if (typeof DEV_MODE !== 'undefined' && DEV_MODE) {
+    const b = document.getElementById('dev-banner');
+    b.classList.remove('hidden');
+    b.innerHTML = 'โหมดทดลองดูหน้าจอ (DEV MODE) — ข้ามการเข้าสู่ระบบจริง จำลองเป็นผู้ใช้สิทธิ์ admin · แก้ DEV_MODE = false ในไฟล์ auth.js เพื่อใช้งานจริง';
+  }
+  const session = requireAuth();
+  if (session) {
+    document.getElementById('user-chip').innerHTML = `
+      <img src="${session.picture || ''}" class="w-7 h-7 rounded-full border border-white/30" onerror="this.style.display='none'">
+      <span class="text-xs font-medium">${session.name || session.email}</span>
+      <button onclick="logout()" class="text-indigo-200 hover:text-white" title="ออกจากระบบ">${icon('logout','w-4 h-4')}</button>`;
+  }
+
+  const urlParams = new URLSearchParams(location.search);
+  let currentDept = urlParams.get('dept') || (session?.departments?.[0]) || DEPARTMENTS[0].id;
+  let appData = [];
+  let currentEditingId = null;
+  let dirty = false;
+
+  function renderDeptTabs() {
+    const visible = DEPARTMENTS.filter(d => canAccessDept(session, d.id));
+    document.getElementById('dept-tabs').innerHTML = visible.map(d => `
+      <button onclick="switchDept('${d.id}')" class="btn ${d.id === currentDept ? 'btn-primary' : 'btn-ghost'}" style="${d.id === currentDept ? `background:${d.color}` : ''}">${d.short}</button>
+    `).join('');
+  }
+  async function switchDept(id) {
+    if (dirty && !confirm('มีข้อมูลที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return;
+    currentDept = id;
+    history.replaceState(null, '', `data-entry.html?dept=${id}`);
+    await loadAndRender();
+  }
+
+  async function loadAndRender() {
+    renderDeptTabs();
+    appData = await loadDeptData(currentDept);
+    dirty = false;
+    renderAll();
+  }
+
+  function statusBadge(remaining, totalSpent, item) {
+    const alertLabel = spendAlertLabel(remaining);
+    if (alertLabel === 'ใช้จ่ายเกินงบประมาณ') return `<span class="badge badge-bad">${icon('alert','w-3 h-3')}${alertLabel}</span>`;
+    if (alertLabel === 'สมดุลงบประมาณ' && totalSpent > 0) return `<span class="badge" style="background:var(--blue-soft);color:var(--blue)">${icon('check-circle','w-3 h-3')}${alertLabel}</span>`;
+    if (isLeaf(appData, item) && totalSpent === 0) return `<span class="badge badge-pending">${icon('clock','w-3 h-3')}รอเบิกจ่าย</span>`;
+    return `<span class="badge badge-ok">${icon('check-circle','w-3 h-3')}ปกติ</span>`;
+  }
+
+  function renderAll() {
+    const totals = calculateHierarchy(appData);
+    document.getElementById('dept-budget').innerText = thb(totals.budget) + ' บาท';
+    document.getElementById('dept-spent').innerText = thb(totals.spent) + ' บาท';
+    document.getElementById('dept-remain').innerText = thb(totals.remaining) + ' บาท';
+
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+    appData.forEach(item => {
+      const tr = document.createElement('tr');
+      const totalAllocated = item.subBudgets.reduce((a, b) => a + b, 0);
+      const totalSpent = item.spendings.reduce((s, sp) => s + Number(sp.amt || 0), 0);
+      const remaining = totalAllocated - totalSpent;
+      const leaf = isLeaf(appData, item);
+      const editable = leaf && canEditItem(session, item);
+
+      tr.className = item.type === 'project' ? 'row-project' : (item.type === 'work' ? 'row-work' : 'row-activity');
+      if (editable) tr.classList.add('cursor-pointer');
+      let indent = item.type === 'work' ? 'padding-left:1rem' : (item.type === 'activity' ? 'padding-left:2rem' : '');
+      const typeIcon = item.type === 'project' ? icon('office', 'w-3.5 h-3.5 opacity-60')
+        : (item.type === 'work' ? icon('folder', 'w-3.5 h-3.5') : icon('chevron', 'w-3 h-3 opacity-50'));
+
+      // คอลัมน์การเบิกจ่ายรายครั้ง -> แสดงเฉพาะไอคอนเครื่องหมายถูกเพื่อความกระชับ คลิกเพื่อเปิดป๊อปอัพรายละเอียด
+      let spendCells = '';
+      item.spendings.forEach(sp => {
+        const used = Number(sp.amt || 0) > 0;
+        const cls = `p-1 text-center spend-check-cell ${leaf && !editable ? 'locked' : ''}`;
+        spendCells += `<td class="${cls}" title="${used ? thb(sp.amt) + ' บาท' + (sp.date ? ' • ' + sp.date : '') : (leaf ? (editable ? 'คลิกแถวนี้เพื่อบันทึก' : 'ไม่มีสิทธิ์แก้ไข') : '')}">${used ? icon('check-circle', 'w-3.5 h-3.5') : '<span class="text-faint">-</span>'}</td>`;
+      });
+
+      // เชิงคุณภาพ: ระดับคุณภาพรายชิ้นงาน (จากคะแนนเฉลี่ยความพึงพอใจ) — คนละส่วนกับผลสำเร็จเชิงปริมาณ
+      // ผลการสรุปโครงการ: เทียบผลสำเร็จจริงกับค่าเป้าหมายที่ตั้งไว้ (แสดงเฉพาะระดับโครงการ)
+      const z = item._scoreCount ? (item._scoreSum / item._scoreCount) / 5 * 100 : null;
+      const qGrade = qualityGrade(z);
+      const qColor = z === null ? 'var(--text-faint)' : (z >= 62.75 ? 'var(--green)' : z >= 37.75 ? 'var(--blue)' : z >= 12.75 ? 'var(--amber)' : 'var(--red)');
+      const achPct = item._rollupTarget ? (item._rollupActual / item._rollupTarget * 100) : null;
+      const rLabel = item.type === 'project' ? resultLabel(achPct) : '-';
+      const rColor = item.type !== 'project' || achPct === null ? 'var(--text-faint)' : (achPct >= 62.75 ? 'var(--green)' : achPct >= 37.75 ? 'var(--blue)' : achPct >= 12.75 ? 'var(--amber)' : 'var(--red)');
+      const actualDisplay = item._rollupHasActual ? item._rollupActual : null;
+
+      if (editable) tr.onclick = () => openEditModal(item.id);
+
+      tr.innerHTML = `
+        <td class="p-1.5 text-center">${item.indexNum || ''}</td>
+        <td class="p-1 name-cell" style="${indent}" title="${item.name}"><span class="inline-flex items-center gap-1">${typeIcon}<span>${item.name}</span>${leaf && !editable ? icon('lock','w-3 h-3 opacity-40 flex-shrink-0') : ''}</span></td>
+        <td class="p-1.5 text-right font-bold font-mono">${thbShort(totalAllocated)}</td>
+        <td class="p-1 text-right font-mono text-soft text-[11px]">${item.subBudgets[0] > 0 ? thbShort(item.subBudgets[0]) : '-'}</td>
+        <td class="p-1 text-right font-mono text-soft text-[11px]">${item.subBudgets[1] > 0 ? thbShort(item.subBudgets[1]) : '-'}</td>
+        <td class="p-1 text-right font-mono text-soft text-[11px]">${item.subBudgets[2] > 0 ? thbShort(item.subBudgets[2]) : '-'}</td>
+        ${spendCells}
+        <td class="p-1.5 text-right font-bold font-mono" style="color:var(--amber)">${thbShort(totalSpent)}</td>
+        <td class="p-1.5 text-right font-bold font-mono" style="color:${remaining < 0 ? 'var(--red)' : 'var(--green)'}">${thbShort(remaining)}</td>
+        <td class="p-1 text-center text-soft text-[11px]">${item._rollupTarget > 0 ? item._rollupTarget : '-'}</td>
+        <td class="p-1 text-center text-[11px] font-semibold">${actualDisplay !== null ? actualDisplay : '-'}</td>
+        <td class="p-1 text-center font-semibold text-[11px]" style="color:${qColor}">${qGrade}</td>
+        <td class="p-1.5 text-center font-semibold text-[11px]" style="color:${rColor}">${rLabel}</td>
+        <td class="p-1.5 text-center">${statusBadge(remaining, totalSpent, item)}</td>
+        <td class="p-1 text-soft truncate text-[11px]" style="max-width:90px" title="${item.owner || ''}">${item.owner || '-'}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    // footer: รวมทุกคอลัมน์ตัวเลข ยกเว้นผู้รับผิดชอบ
+    const foot = document.getElementById('table-foot');
+    const spendTotalsHtml = totals.spendByTime.map(v => `<td class="p-1 text-right font-mono text-[10px]">${v > 0 ? thbShort(v) : '-'}</td>`).join('');
+    const schoolZ = totals.avgScorePct;
+    const schoolAch = totals.achievementPct;
+    foot.innerHTML = `
+      <tr class="row-project">
+        <td class="p-1.5"></td>
+        <td class="p-1.5">รวมภาพรวมกลุ่มงานทั้งสิ้น</td>
+        <td class="p-1.5 text-right font-mono">${thbShort(totals.budget)}</td>
+        <td class="p-1 text-right font-mono text-[11px]">${thbShort(totals.sub[0])}</td>
+        <td class="p-1 text-right font-mono text-[11px]">${thbShort(totals.sub[1])}</td>
+        <td class="p-1 text-right font-mono text-[11px]">${thbShort(totals.sub[2])}</td>
+        ${spendTotalsHtml}
+        <td class="p-1.5 text-right font-mono">${thbShort(totals.spent)}</td>
+        <td class="p-1.5 text-right font-mono">${thbShort(totals.remaining)}</td>
+        <td class="p-1.5"></td>
+        <td class="p-1 text-center text-[11px]">-</td>
+        <td class="p-1 text-center text-[11px]">-</td>
+        <td class="p-1 text-center text-[11px]">${qualityGrade(schoolZ)}</td>
+        <td class="p-1.5 text-center text-[11px]">${resultLabel(schoolAch)}</td>
+        <td class="p-1.5 text-center">${totals.remaining < 0 ? icon('alert','w-4 h-4') : icon('check-circle','w-4 h-4')}</td>
+        <td class="p-1.5"></td>
+      </tr>`;
+  }
+
+  // ----- ป๊อปอัพบันทึกข้อมูล: การเบิกจ่ายราย 8 ครั้ง + งบแยกประเภท + เป้าหมาย -----
+  let modalSpendings = [];
+
+  function toggleScoreGuide() {
+    const el = document.getElementById('score-guide');
+    el.classList.toggle('hidden');
+  }
+
+  function renderSpendGrid() {
+    const grid = document.getElementById('spend-grid');
+    grid.innerHTML = modalSpendings.map((sp, i) => `
+      <div class="panel border-base p-3">
+        <div class="text-xs font-bold text-center mb-2" style="color:var(--accent)">ครั้งที่ ${i + 1}</div>
+        <label class="block text-[10px] text-soft mb-0.5">จำนวนเงิน (บาท)</label>
+        <input type="number" class="w-full border border-base rounded px-2 py-1 text-sm bg-transparent mb-2 spend-amt" data-idx="${i}" value="${sp.amt || 0}">
+        <label class="block text-[10px] text-soft mb-0.5">วันที่เบิกจ่าย</label>
+        <input type="date" class="w-full border border-base rounded px-2 py-1 text-xs bg-transparent mb-2 spend-date" data-idx="${i}" value="${sp.date || ''}">
+        <label class="block text-[10px] text-soft mb-0.5">คะแนน (0-5)</label>
+        <input type="number" min="0" max="5" step="0.5" class="w-full border border-base rounded px-2 py-1 text-sm bg-transparent spend-score" data-idx="${i}" value="${sp.score || 0}">
+      </div>`).join('');
+    grid.querySelectorAll('.spend-amt, .spend-date, .spend-score').forEach(el => {
+      el.addEventListener('input', () => {
+        const i = Number(el.dataset.idx);
+        if (el.classList.contains('spend-amt')) modalSpendings[i].amt = Number(el.value) || 0;
+        if (el.classList.contains('spend-date')) modalSpendings[i].date = el.value;
+        if (el.classList.contains('spend-score')) modalSpendings[i].score = Number(el.value) || 0;
+        renderAutoResult();
+      });
+    });
+    renderAutoResult();
+  }
+
+  function renderAutoResult() {
+    const scored = modalSpendings.filter(sp => Number(sp.score) > 0);
+    const box = document.getElementById('auto-result');
+    if (!scored.length) { box.innerHTML = '<span class="text-soft font-normal">ยังไม่มีคะแนนความพึงพอใจ — กรอกคะแนนอย่างน้อย 1 ครั้งเพื่อให้ระบบประมวลผล</span>'; return; }
+    const avg = scored.reduce((s, sp) => s + Number(sp.score), 0) / scored.length;
+    const z = avg / 5 * 100;
+    box.innerHTML = `
+      <div class="flex flex-wrap gap-4">
+        <div>คะแนนเฉลี่ย: <b>${avg.toFixed(2)}</b> / 5</div>
+        <div>เทียบร้อยละ: <b>${z.toFixed(2)}%</b></div>
+        <div>เชิงคุณภาพ: <b>${qualityGrade(z)}</b></div>
+      </div>`;
+  }
+
+  function renderAchievementPreview() {
+    const target = Number(document.getElementById('input-target').value) || 0;
+    const actualRaw = document.getElementById('input-actual').value;
+    const box = document.getElementById('achievement-preview');
+    if (!target || actualRaw === '') { box.innerHTML = '<span class="text-soft font-normal">กรอกทั้งค่าเป้าหมายและผลสำเร็จจริง เพื่อให้ระบบเทียบผลให้อัตโนมัติ</span>'; return; }
+    const actual = Number(actualRaw) || 0;
+    const pct = actual / target * 100;
+    box.innerHTML = `ผลสำเร็จจริง ${actual} จากเป้าหมาย ${target} (${pct.toFixed(2)}%) → ผลการสรุปโครงการ: <b>${resultLabel(pct)}</b>`;
+  }
+
+  function openEditModal(id) {
+    const item = appData.find(x => x.id === id);
+    if (!item || !isLeaf(appData, item) || !canEditItem(session, item)) return;
+    currentEditingId = id;
+    document.getElementById('modal-title-display').innerText = item.name;
+    const parent = appData.find(x => x.id === item.parentId);
+    const grandparent = parent ? appData.find(x => x.id === parent.parentId) : null;
+    const projectName = item.type === 'project' ? null : (grandparent ? grandparent.name : (parent ? parent.name : null));
+    document.getElementById('modal-parent-display').innerText = projectName ? `ภายใต้โครงการหลักยึดโยง: ${projectName}` : '';
+    modalSpendings = item.spendings.map(sp => ({ amt: sp.amt || 0, date: sp.date || '', score: sp.score || 0 }));
+    renderSpendGrid();
+    document.getElementById('input-sub0').value = item.subBudgets[0] || 0;
+    document.getElementById('input-sub1').value = item.subBudgets[1] || 0;
+    document.getElementById('input-sub2').value = item.subBudgets[2] || 0;
+    document.getElementById('input-target').value = item.success?.target || '';
+    document.getElementById('input-actual').value = item.success?.actual === null || item.success?.actual === undefined ? '' : item.success.actual;
+    document.getElementById('input-owner').value = item.owner || '';
+    document.getElementById('input-note').value = item.note || '';
+    renderAchievementPreview();
+    document.getElementById('edit-modal').classList.remove('hidden');
+  }
+  document.getElementById('input-target').addEventListener('input', renderAchievementPreview);
+  document.getElementById('input-actual').addEventListener('input', renderAchievementPreview);
+
+  function closeModal() { document.getElementById('edit-modal').classList.add('hidden'); currentEditingId = null; }
+  function applyModalEdits() {
+    if (!currentEditingId) return;
+    const item = appData.find(x => x.id === currentEditingId);
+    if (item) {
+      item.spendings = modalSpendings.map(sp => ({ amt: sp.amt, date: sp.date, score: sp.score }));
+      item.subBudgets = [
+        Number(document.getElementById('input-sub0').value) || 0,
+        Number(document.getElementById('input-sub1').value) || 0,
+        Number(document.getElementById('input-sub2').value) || 0,
+      ];
+      const actualRaw = document.getElementById('input-actual').value;
+      item.success = {
+        target: Number(document.getElementById('input-target').value) || 0,
+        actual: actualRaw === '' ? null : Number(actualRaw),
+      };
+      item.owner = document.getElementById('input-owner').value;
+      item.note = document.getElementById('input-note').value;
+      dirty = true;
+    }
+    closeModal(); renderAll();
+  }
+
+  async function manualSave() {
+    try {
+      await saveDeptData(currentDept, appData);
+      dirty = false;
+      alert('บันทึกข้อมูลเรียบร้อยแล้ว');
+    } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); }
+  }
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  loadAndRender();
+</script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>นำเข้าข้อมูล CSV | ระบบบริหารแผนปฏิบัติการ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="no-print topbar sticky top-0 z-50 shadow-md">
+    <div class="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center gap-2">
+        <svg class="icon w-6 h-6 text-indigo-200" viewBox="0 0 24 24"><use href="#icon-building"/></svg>
+        <div>
+          <div class="text-sm font-bold leading-tight">ระบบบริหารแผนปฏิบัติการประจำปีงบประมาณ 2568 - 2569</div>
+          <div class="text-[11px] text-indigo-200">โรงเรียนโพนงามศึกษา สพม.สกลนคร</div>
+        </div>
+      </div>
+      <nav class="flex items-center gap-1 flex-wrap">
+        <a href="dashboard.html" class="nav-link"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-grid"/></svg>แดชบอร์ด</a>
+        <a href="data-entry.html" class="nav-link"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-table"/></svg>บันทึกข้อมูล</a>
+        <a href="import.html" class="nav-link active"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-upload"/></svg>นำเข้าข้อมูล (CSV)</a>
+        <button id="theme-toggle-btn" class="theme-toggle ml-1" onclick="toggleTheme()"></button>
+        <div id="user-chip" class="flex items-center gap-2 ml-2 pl-2 border-l border-white/20"></div>
+      </nav>
+    </div>
+  </div>
+  <div id="dev-banner" class="no-print hidden text-center text-[11px] py-1.5 font-medium" style="background:var(--amber-soft); color:var(--amber)"></div>
+
+  <div class="max-w-[1400px] mx-auto px-3 mt-4 pb-10">
+    <div class="panel border-base p-5 mb-5">
+      <h2 class="text-sm font-bold mb-3 flex items-center gap-1.5">
+        <svg class="icon w-4 h-4 text-soft" viewBox="0 0 24 24"><use href="#icon-upload"/></svg>
+        นำเข้าข้อมูลแผนปฏิบัติการจากไฟล์ CSV
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+          <label class="block text-xs font-bold mb-1">เลือกกลุ่มงานปลายทาง</label>
+          <select id="dept-select" class="w-full border border-base rounded px-3 py-2 bg-transparent text-sm"></select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-bold mb-1">เลือกไฟล์ CSV / วางข้อมูลจาก Excel (Ctrl+V ได้)</label>
+          <input type="file" id="csv-file" accept=".csv,.tsv,.txt" class="text-xs">
+        </div>
+      </div>
+
+      <!-- เทมเพลต CSV ดาวน์โหลด -->
+      <div class="mb-4 p-4 rounded-lg border border-soft" style="background:var(--green-soft)">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="text-xs font-bold flex items-center gap-1.5 mb-1" style="color:var(--green)">
+              <svg class="icon w-3.5 h-3.5" viewBox="0 0 24 24"><use href="#icon-download"/></svg>
+              เทมเพลตไฟล์นำเข้า (ดาวน์โหลดเพื่อกรอกข้อมูลให้ถูกรูปแบบ)
+            </div>
+            <div class="text-[11px] text-soft">
+              คอลัมน์ที่ระบบรองรับ: <b>ที่ | ชื่อโครงการ/งาน/กิจกรรม | งบจัดสรร | อุดหนุน | พัฒนาผู้เรียน | รายได้ฯ | ค่าเป้าหมาย | (คอลัมน์นี้ข้ามได้) | ผู้รับผิดชอบ | หมายเหตุ | อีเมลผู้รับผิดชอบ</b><br>
+              หมายเหตุ: คอลัมน์ <b>ค่าเป้าหมาย</b> (คอลัมน์ที่ 7) จะถูกนำมาแสดงในตารางบันทึกข้อมูล เพื่อเปรียบเทียบกับผลสำเร็จจริงที่กรอกภายหลัง
+            </div>
+          </div>
+          <button onclick="downloadTemplate()" class="btn btn-success flex-shrink-0">
+            <svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-download"/></svg>
+            ดาวน์โหลดเทมเพลต CSV
+          </button>
+        </div>
+        <div class="mt-3">
+          <div class="text-[10px] font-bold text-soft mb-1">ตัวอย่างรูปแบบข้อมูล (แถวสีพื้นหมายถึงระดับชั้น):</div>
+          <div class="overflow-x-auto rounded border border-soft">
+            <table class="text-[10px] w-full" style="border-collapse:collapse">
+              <thead><tr style="background:var(--bg-header-2);color:#fff">
+                <td class="px-2 py-1">ที่</td><td class="px-2 py-1">ชื่อโครงการ/งาน/กิจกรรม</td>
+                <td class="px-2 py-1">งบจัดสรร</td><td class="px-2 py-1">อุดหนุน</td><td class="px-2 py-1">พัฒนาผู้เรียน</td><td class="px-2 py-1">รายได้ฯ</td>
+                <td class="px-2 py-1">ค่าเป้าหมาย</td><td class="px-2 py-1">(ข้ามได้)</td><td class="px-2 py-1">ผู้รับผิดชอบ</td><td class="px-2 py-1">หมายเหตุ</td><td class="px-2 py-1">อีเมล</td>
+              </tr></thead>
+              <tbody>
+                <tr class="row-project"><td class="px-2 py-1">1</td><td class="px-2 py-1">โครงการพัฒนาวิชาการ</td><td class="px-2 py-1">50000</td><td class="px-2 py-1"></td><td class="px-2 py-1"></td><td class="px-2 py-1"></td><td class="px-2 py-1">85</td><td class="px-2 py-1"></td><td class="px-2 py-1">ผู้อำนวยการ</td><td class="px-2 py-1"></td><td class="px-2 py-1">director@school.ac.th</td></tr>
+                <tr class="row-work"><td class="px-2 py-1">1.1</td><td class="px-2 py-1">งานพัฒนาหลักสูตร</td><td class="px-2 py-1">20000</td><td class="px-2 py-1">20000</td><td class="px-2 py-1"></td><td class="px-2 py-1"></td><td class="px-2 py-1">80</td><td class="px-2 py-1"></td><td class="px-2 py-1">นางสาว ก.</td><td class="px-2 py-1"></td><td class="px-2 py-1">teacher@school.ac.th</td></tr>
+                <tr class="row-activity"><td class="px-2 py-1"></td><td class="px-2 py-1">กิจกรรมอบรมครู</td><td class="px-2 py-1">10000</td><td class="px-2 py-1">10000</td><td class="px-2 py-1"></td><td class="px-2 py-1"></td><td class="px-2 py-1">90</td><td class="px-2 py-1"></td><td class="px-2 py-1">นางสาว ก.</td><td class="px-2 py-1">จัดในภาคเรียนที่ 1</td><td class="px-2 py-1">teacher@school.ac.th</td></tr>
+                <tr class="row-activity"><td class="px-2 py-1"></td><td class="px-2 py-1">กิจกรรมนิเทศการสอน</td><td class="px-2 py-1">10000</td><td class="px-2 py-1">10000</td><td class="px-2 py-1"></td><td class="px-2 py-1"></td><td class="px-2 py-1">80</td><td class="px-2 py-1"></td><td class="px-2 py-1">นาย ข.</td><td class="px-2 py-1"></td><td class="px-2 py-1">teacher2@school.ac.th</td></tr>
+                <tr class="row-work"><td class="px-2 py-1">1.2</td><td class="px-2 py-1">งานวัดผลประเมินผล</td><td class="px-2 py-1">30000</td><td class="px-2 py-1">30000</td><td class="px-2 py-1"></td><td class="px-2 py-1"></td><td class="px-2 py-1">75</td><td class="px-2 py-1"></td><td class="px-2 py-1">นาย ข.</td><td class="px-2 py-1"></td><td class="px-2 py-1">teacher2@school.ac.th</td></tr>
+                <tr class="row-project"><td class="px-2 py-1">2</td><td class="px-2 py-1">โครงการกิจกรรมพัฒนาผู้เรียน</td><td class="px-2 py-1">25000</td><td class="px-2 py-1"></td><td class="px-2 py-1">25000</td><td class="px-2 py-1"></td><td class="px-2 py-1">80</td><td class="px-2 py-1"></td><td class="px-2 py-1">นาย ค.</td><td class="px-2 py-1"></td><td class="px-2 py-1">teacher3@school.ac.th</td></tr>
+                <tr class="row-work"><td class="px-2 py-1"></td><td class="px-2 py-1">กิจกรรมแนะแนว (งานที่ไม่มีงานย่อย)</td><td class="px-2 py-1">25000</td><td class="px-2 py-1"></td><td class="px-2 py-1">25000</td><td class="px-2 py-1"></td><td class="px-2 py-1">80</td><td class="px-2 py-1"></td><td class="px-2 py-1">นาย ค.</td><td class="px-2 py-1"></td><td class="px-2 py-1">teacher3@school.ac.th</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <textarea id="csv-paste" rows="6" placeholder="หรือคัดลอกตารางจาก Excel แล้ววางที่นี่ (รองรับคอลัมน์: ที่ | ชื่อโครงการ/งาน/กิจกรรม | งบจัดสรร | อุดหนุน | พัฒนาผู้เรียน | รายได้ฯ | เชิงปริมาณ | เชิงคุณภาพ | ผู้รับผิดชอบ | หมายเหตุ | อีเมลผู้รับผิดชอบ)"
+        class="w-full border border-base rounded px-3 py-2 bg-transparent text-xs font-mono"></textarea>
+
+      <div class="flex gap-2 mt-3">
+        <button onclick="previewImport()" class="btn btn-primary"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-table"/></svg>ประมวลผลตัวอย่าง</button>
+        <span class="text-xs text-soft self-center flex items-center gap-1.5">
+          <svg class="icon w-3.5 h-3.5" viewBox="0 0 24 24"><use href="#icon-lightbulb"/></svg>
+          เลขที่เต็ม (1,2,3) = โครงการ • เลขทศนิยม (1.1,1.2) = งาน • ว่าง = กิจกรรมย่อยหรืองานที่ไม่มีลูก • คอลัมน์ 7 = ค่าเป้าหมาย (จะแสดงในตารางบันทึก)
+        </span>
+      </div>
+    </div>
+
+    <div id="preview-panel" class="panel border-base overflow-hidden mb-5 hidden">
+      <div class="p-3 bg-subtle border-b border-soft flex justify-between items-center">
+        <div class="text-sm font-bold flex items-center gap-1.5">
+          <svg class="icon w-4 h-4 text-soft" viewBox="0 0 24 24"><use href="#icon-check-circle"/></svg>
+          ตัวอย่างข้อมูลที่จะนำเข้า (<span id="preview-count">0</span> รายการ)
+        </div>
+        <div class="flex gap-2">
+          <label class="text-xs flex items-center gap-1.5"><input type="radio" name="import-mode" value="replace" checked> แทนที่ข้อมูลเดิมทั้งหมด</label>
+          <label class="text-xs flex items-center gap-1.5"><input type="radio" name="import-mode" value="append"> เพิ่มต่อท้ายข้อมูลเดิม</label>
+          <button onclick="confirmImport()" class="btn btn-success"><svg class="icon w-4 h-4" viewBox="0 0 24 24"><use href="#icon-save"/></svg>ยืนยันนำเข้า</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+        <table class="data-table text-xs">
+          <thead><tr><th class="p-2">ที่</th><th class="p-2">ชื่อ</th><th class="p-2">งบจัดสรร</th><th class="p-2">ค่าเป้าหมาย</th><th class="p-2">ผู้รับผิดชอบ</th></tr></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script src="icons.js"></script>
+<script src="theme.js"></script>
+<script src="shared.js"></script>
+<script src="auth.js"></script>
+<script>
+  injectIconSprite();
+  renderThemeToggleIcon();
+  if (typeof DEV_MODE !== 'undefined' && DEV_MODE) {
+    const b = document.getElementById('dev-banner');
+    b.classList.remove('hidden');
+    b.innerHTML = 'โหมดทดลองดูหน้าจอ (DEV MODE) — ข้ามการเข้าสู่ระบบจริง จำลองเป็นผู้ใช้สิทธิ์ admin · แก้ DEV_MODE = false ในไฟล์ auth.js เพื่อใช้งานจริง';
+  }
+  const session = requireAuth();
+  if (session) {
+    document.getElementById('user-chip').innerHTML = `
+      <img src="${session.picture || ''}" class="w-7 h-7 rounded-full border border-white/30" onerror="this.style.display='none'">
+      <span class="text-xs font-medium">${session.name || session.email}</span>
+      <button onclick="logout()" class="text-indigo-200 hover:text-white" title="ออกจากระบบ">${icon('logout','w-4 h-4')}</button>`;
+  }
+  // นำเข้าข้อมูลได้เฉพาะ admin หรือผู้ที่มีสิทธิ์ในกลุ่มงานนั้น
+  const allowedDepts = DEPARTMENTS.filter(d => canAccessDept(session, d.id));
+  document.getElementById('dept-select').innerHTML = allowedDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  if (!allowedDepts.length) {
+    document.querySelector('.panel').innerHTML = `<div class="p-6 text-center text-soft">${icon('lock','w-8 h-8 mx-auto mb-2')}<div>บัญชีของท่านไม่มีสิทธิ์นำเข้าข้อมูลกลุ่มงานใดเลย กรุณาติดต่อผู้ดูแลระบบ</div></div>`;
+  }
+
+  function downloadTemplate() {
+    const header = 'ที่,ชื่อโครงการ/งาน/กิจกรรม,งบจัดสรร,อุดหนุน,พัฒนาผู้เรียน,รายได้ฯ,ค่าเป้าหมาย,,ผู้รับผิดชอบ,หมายเหตุ,อีเมลผู้รับผิดชอบ';
+    const rows = [
+      '1,โครงการพัฒนาวิชาการ,50000,,,,85,,ผู้อำนวยการ,,director@school.ac.th',
+      '1.1,งานพัฒนาหลักสูตร,20000,20000,,,80,,นางสาว ก.,,teacher@school.ac.th',
+      ',กิจกรรมอบรมครู,10000,10000,,,90,,นางสาว ก.,จัดในภาคเรียนที่ 1,teacher@school.ac.th',
+      ',กิจกรรมนิเทศการสอน,10000,10000,,,80,,นาย ข.,,teacher2@school.ac.th',
+      '1.2,งานวัดผลประเมินผล,30000,30000,,,75,,นาย ข.,,teacher2@school.ac.th',
+      '2,โครงการกิจกรรมพัฒนาผู้เรียน,25000,,25000,,80,,นาย ค.,,teacher3@school.ac.th',
+      ',กิจกรรมแนะแนว,25000,,25000,,80,,นาย ค.,,teacher3@school.ac.th',
+    ];
+    const csv = '\uFEFF' + [header, ...rows].join('\n'); // BOM สำหรับ Excel ภาษาไทย
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'edu-budget-template.csv'; a.click();
+  }
+
+  document.getElementById('csv-file').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { document.getElementById('csv-paste').value = ev.target.result; };
+    reader.readAsText(file, 'UTF-8');
+  });
+
+  let parsedData = [];
+  function previewImport() {
+    const deptId = document.getElementById('dept-select').value;
+    const text = document.getElementById('csv-paste').value.trim();
+    if (!text) { alert('กรุณาเลือกไฟล์หรือวางข้อมูล CSV ก่อน'); return; }
+    parsedData = parseCSVToAppData(text, deptId);
+    document.getElementById('preview-count').innerText = parsedData.length;
+    document.getElementById('preview-body').innerHTML = parsedData.map(item => `
+      <tr class="${item.type === 'project' ? 'row-project' : item.type === 'work' ? 'row-work' : 'row-activity'}">
+        <td class="p-2 text-center">${item.indexNum || ''}</td>
+        <td class="p-2" style="${item.type === 'work' ? 'padding-left:1rem' : item.type === 'activity' ? 'padding-left:2rem' : ''}">${item.name}</td>
+        <td class="p-2 text-right font-mono">${thbShort(item.subBudgets.reduce((a,b)=>a+b,0))}</td>
+        <td class="p-2 text-center">${item.success?.target > 0 ? item.success.target : '-'}</td>
+        <td class="p-2 text-soft">${item.owner || '-'}</td>
+      </tr>`).join('');
+    document.getElementById('preview-panel').classList.remove('hidden');
+  }
+
+  async function confirmImport() {
+    const deptId = document.getElementById('dept-select').value;
+    const mode = document.querySelector('input[name="import-mode"]:checked').value;
+    let finalData = parsedData;
+    if (mode === 'append') {
+      const existing = await loadDeptData(deptId);
+      finalData = existing.concat(parsedData);
+    }
+    try {
+      await saveDeptData(deptId, finalData);
+      alert(`นำเข้าข้อมูล ${parsedData.length} รายการ เข้ากลุ่มงาน "${getDept(deptId).name}" เรียบร้อยแล้ว`);
+      window.location.href = `data-entry.html?dept=${deptId}`;
+    } catch (e) { alert('นำเข้าไม่สำเร็จ: ' + e.message); }
+  }
+</script>
+</body>
+</html>
