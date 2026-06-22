@@ -58,7 +58,7 @@ async function saveDeptData(deptId, appData) {
   // บันทึก localStorage ก่อนเสมอ (กันข้อมูลหายระหว่างออฟไลน์)
   localStorage.setItem(`edu_data_${deptId}`, JSON.stringify(appData));
 
-  if (DEV_MODE || !SPREADSHEET_ID || SPREADSHEET_ID === 'YOUR_SPREADSHEET_ID') {
+  if (DEV_MODE || !SPREADSHEET_ID || SPREADSHEET_ID === '1gt8OSlgf5atgtXx7KPtBRD6gcWGsf_b1COOTE2gS84w') {
     return { ok: true, mode: 'local-only' };
   }
 
