@@ -64,7 +64,8 @@ let _tokenClient = null;
 let _tokenResolve = null;
 
 function initTokenClient() {
-  if (typeof google === 'undefined' || !google.accounts?.oauth2) return;
+  if (typeof google === 'undefined' || !google.accounts?.oauth2) return false;
+  if (_tokenClient) return true; // เริ่มต้นแล้ว ไม่ต้องทำซ้ำ
   _tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: SHEETS_SCOPE,
@@ -72,17 +73,23 @@ function initTokenClient() {
       if (_tokenResolve) { _tokenResolve(resp); _tokenResolve = null; }
     },
   });
+  return true;
 }
 
-// ขอ access_token (popup consent ครั้งแรก, silent refresh ครั้งถัดไป)
+// ขอ access_token — ถ้า token client ยังไม่พร้อมให้ลอง init ก่อนอีกครั้ง
 function requestAccessToken() {
   return new Promise((resolve, reject) => {
-    if (!_tokenClient) { reject(new Error('Token client ยังไม่พร้อม')); return; }
+    // ลอง init อีกครั้งในกรณีที่ script โหลดช้า
+    if (!_tokenClient) initTokenClient();
+    if (!_tokenClient) {
+      reject(new Error('Google Sign-In script ยังโหลดไม่เสร็จ กรุณา Refresh หน้าเว็บแล้วลองใหม่'));
+      return;
+    }
     _tokenResolve = (resp) => {
       if (resp.error) reject(new Error(resp.error));
       else resolve(resp.access_token);
     };
-    _tokenClient.requestAccessToken({ prompt: '' }); // '' = silent ถ้าเคย consent แล้ว
+    _tokenClient.requestAccessToken({ prompt: 'consent' }); // consent = แสดง popup ขอสิทธิ์ทุกครั้ง (ป้องกัน silent fail)
   });
 }
 
