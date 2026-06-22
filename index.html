@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เข้าสู่ระบบ | ระบบบริหารแผนปฏิบัติการ โรงเรียนโพนงามศึกษา</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body class="min-h-screen flex items-center justify-center px-4">
+  <div class="absolute top-4 right-4">
+    <button id="theme-toggle-btn" class="theme-toggle" onclick="toggleTheme()"></button>
+  </div>
+
+  <div class="panel border-base w-full max-w-sm p-8 text-center">
+    <svg class="icon w-12 h-12 mx-auto text-indigo-500" viewBox="0 0 24 24"><use href="#icon-building"/></svg>
+    <h1 class="text-lg font-bold mt-3">ระบบบริหารแผนปฏิบัติการ</h1>
+    <p class="text-soft text-xs mt-1">โรงเรียนโพนงามศึกษา สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาสกลนคร</p>
+
+    <div class="my-6 flex items-center gap-2 text-faint text-[11px]">
+      <span class="flex-1 border-t border-soft"></span>เข้าสู่ระบบด้วยบัญชี Google ของโรงเรียน<span class="flex-1 border-t border-soft"></span>
+    </div>
+
+    <div id="g_id_signin" class="flex justify-center"></div>
+    <div id="signin-status" class="text-xs text-soft mt-4"></div>
+
+    <div class="mt-6 text-[11px] text-faint flex items-center justify-center gap-1.5">
+      <svg class="icon w-3.5 h-3.5" viewBox="0 0 24 24"><use href="#icon-shield"/></svg>
+      ระบบอนุญาตเฉพาะอีเมลที่ได้รับสิทธิ์ (whitelist) เท่านั้น
+    </div>
+  </div>
+
+<script src="icons.js"></script>
+<script src="theme.js"></script>
+<script src="shared.js"></script>
+<script src="sheets-backend.js"></script>
+<script src="auth.js"></script>
+<script>
+(function () {
+  injectIconSprite();
+  renderThemeToggleIcon();
+
+  if (typeof DEV_MODE !== 'undefined' && DEV_MODE) {
+    document.querySelector('.panel').innerHTML = `
+      <svg class="icon w-12 h-12 mx-auto text-amber-500" viewBox="0 0 24 24"><use href="#icon-shield"/></svg>
+      <h1 class="text-lg font-bold mt-3">โหมดทดลองดูหน้าจอ (DEV MODE)</h1>
+      <p class="text-soft text-xs mt-2">ระบบปิดการเข้าสู่ระบบด้วย Google ไว้ชั่วคราวเพื่อให้ดู UX/UI ได้ครบทุกหน้า
+      จำลองเป็นผู้ใช้สิทธิ์ admin โดยอัตโนมัติ</p>
+      <a href="dashboard.html" class="btn btn-primary mt-5 inline-flex">เข้าสู่แดชบอร์ด ${icon('arrow-left','w-4 h-4 rotate-180')}</a>
+      <p class="text-[11px] text-faint mt-4">เปิดใช้งานจริงได้โดยแก้ <code>DEV_MODE = false</code> ในไฟล์ auth.js แล้วตั้งค่า Google OAuth ตามขั้นตอนใน README.md</p>`;
+    return;
+  }
+
+  // ถ้า login ค้างอยู่แล้วและยังไม่หมดอายุ ให้ข้ามไปหน้า dashboard เลย
+  if (getSession()) { window.location.href = 'dashboard.html'; return; }
+
+  window.onload = function () {
+    if (typeof google === 'undefined') {
+      document.getElementById('signin-status').innerText = 'ไม่สามารถโหลด Google Sign-In ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+      return;
+    }
+    // เริ่มต้น token client สำหรับ Sheets API scope (ไม่ใช้ Apps Script)
+    initTokenClient();
+    // เริ่มต้น id client สำหรับรับ credential (ยืนยันตัวตน)
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async (resp) => {
+        document.getElementById('signin-status').innerText = 'กำลังตรวจสอบสิทธิ์...';
+        const ok = await handleGoogleCredential(resp);
+        if (ok) window.location.href = 'dashboard.html';
+        else document.getElementById('signin-status').innerText = 'เข้าสู่ระบบไม่สำเร็จ';
+      },
+    });
+    google.accounts.id.renderButton(document.getElementById('g_id_signin'), { theme: 'outline', size: 'large', shape: 'pill', width: 280 });
+  };
+})();
+</script>
+</body>
+</html>
