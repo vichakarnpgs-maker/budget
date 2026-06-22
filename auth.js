@@ -32,7 +32,7 @@ const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets email profile
 // false = ใช้ Google Sign-In + Sheets API จริง (ต้องตั้งค่า CLIENT_ID และ SPREADSHEET_ID ก่อน)
 // !! ต้องเปลี่ยนเป็น false ก่อนใช้งานจริงกับข้อมูลโรงเรียน !!
 // ----------------------------------------------------------------------
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 const DEV_MOCK_SESSION = {
   email: 'demo.admin@phonngam.ac.th',
