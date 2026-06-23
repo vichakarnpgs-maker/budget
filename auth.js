@@ -6,8 +6,8 @@
 //       → อ่าน Whitelist ใน Sheet → สร้าง session
 // =====================================================================
 
-const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com";
-const SPREADSHEET_ID   = "YOUR_SPREADSHEET_ID";
+const GOOGLE_CLIENT_ID = "1080521502773-mt5a7907nseji5upr6ajm0lv6ommeicc.apps.googleusercontent.com";
+const SPREADSHEET_ID   = "1gt8OSlgf5atgtXx7KPtBRD6gcWGsf_b1COOTE2gS84w";
 const SHEETS_SCOPE     = "https://www.googleapis.com/auth/spreadsheets openid email profile";
 
 // DEV_MODE: true = ข้าม login ดู UX ได้เลย / false = ใช้งานจริง
