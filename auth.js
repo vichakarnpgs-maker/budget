@@ -11,7 +11,7 @@ const SPREADSHEET_ID   = "1gt8OSlgf5atgtXx7KPtBRD6gcWGsf_b1COOTE2gS84w";
 const SHEETS_SCOPE     = "https://www.googleapis.com/auth/spreadsheets openid email profile";
 
 // DEV_MODE: true = ข้าม login ดู UX ได้เลย / false = ใช้งานจริง
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 const DEV_MOCK_SESSION = {
   email: 'demo.admin@phonngam.ac.th', name: 'ผู้ใช้ทดลอง (DEV MODE)', picture: '',
